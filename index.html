@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dead by Daylight: Рандомайзер Маньяков</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .killer-card {
+            display: inline-block;
+            position: relative;
+            background-color: #990000;
+            border: 4px solid black;
+            border-radius: 10px;
+            width: 250px;
+            height: 350px;
+            margin: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+        }
+
+        .killer-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .killer-card span {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .killer-card:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease;
+        }
+
+        .selected {
+            border-color: #ff6666;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            margin: 0 auto;
+        }
+
+        .pointer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -60%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 20px solid red;
+            z-index: 10;
+        }
+
+        #winner-container {
+            margin-top: 20px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #winner-container img {
+            width: 200px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+        }
+
+        #winner-container span {
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Dead by Daylight: Рандомайзер Маньяков</h1>
+    <div id="killer-list">
+        <!-- Генерация карточек -->
+        <!-- Карточки вставляются динамически через JavaScript -->
+    </div>
+    <button onclick="selectAllKillers()">Выбрать всех маньяков</button>
+    <button onclick="deselectAllKillers()">Убрать всех маньяков</button>
+    <button onclick="spinWheel()">Вращать колесо!</button>
+    <div id="canvas-container">
+        <svg id="wheel" width="500" height="500"></svg>
+        <div class="pointer"></div>
+    </div>
+    <div id="winner-container">
+        <img src="" alt="Winner Portrait" id="winner-portrait">
+        <span id="winner-name"></span>
+    </div>
+    <div id="segment-tooltip"></div>
+
+    <script>
+        const killers = [
+            { name: 'The Trapper', image: 'resourses/portraits/K01_TheTrapper_Portrait.webp' },
+            { name: 'The Wraith', image: 'resourses/portraits/K02_TheWraith_Portrait.webp' },
+            { name: 'The Hillbilly', image: 'resourses/portraits/K03_TheHillbilly_Portrait.webp' },
+            { name: 'The Nurse', image: 'resourses/portraits/K04_TheNurse_Portrait.webp' },
+            { name: 'The Shape', image: 'resourses/portraits/K05_TheShape_Portrait.webp' },
+            { name: 'The Hag', image: 'resourses/portraits/K06_TheHag_Portrait.webp' },
+            { name: 'The Doctor', image: 'resourses/portraits/K07_TheDoctor_Portrait.webp' },
+            { name: 'The Huntress', image: 'resourses/portraits/K08_TheHuntress_Portrait.webp' },
+            { name: 'The Cannibal', image: 'resourses/portraits/K09_TheCannibal_Portrait.webp' },
+            { name: 'The Nightmare', image: 'resourses/portraits/K10_TheNightmare_Portrait.webp' },
+            { name: 'The Pig', image: 'resourses/portraits/K11_ThePig_Portrait.webp' },
+            { name: 'The Clown', image: 'resourses/portraits/K12_TheClown_Portrait.webp' },
+            { name: 'The Spirit', image: 'resourses/portraits/K13_TheSpirit_Portrait.webp' },
+            { name: 'The Legion', image: 'resourses/portraits/K14_TheLegion_Portrait.webp' },
+            { name: 'The Plague', image: 'resourses/portraits/K15_ThePlague_Portrait.webp' },
+            { name: 'The Ghost Face', image: 'resourses/portraits/K16_TheGhostFace_Portrait.webp' },
+            { name: 'The Demogorgon', image: 'resourses/portraits/K17_TheDemogorgon_Portrait.webp' },
+            { name: 'The Oni', image: 'resourses/portraits/K18_TheOni_Portrait.webp' },
+            { name: 'The Deathslinger', image: 'resourses/portraits/K19_TheDeathslinger_Portrait.webp' },
+            { name: 'The Executioner', image: 'resourses/portraits/K20_TheExecutioner_Portrait.webp' },
+            { name: 'The Blight', image: 'resourses/portraits/K21_TheBlight_Portrait.webp' },
+            { name: 'The Twins', image: 'resourses/portraits/K22_TheTwins_Portrait.webp' },
+            { name: 'The Trickster', image: 'resourses/portraits/K23_TheTrickster_Portrait.webp' },
+            { name: 'The Nemesis', image: 'resourses/portraits/K24_TheNemesis_Portrait.webp' },
+            { name: 'The Cenobite', image: 'resourses/portraits/K25_TheCenobite_Portrait.webp' },
+            { name: 'The Artist', image: 'resourses/portraits/K26_TheArtist_Portrait.webp' },
+            { name: 'The Onryō', image: 'resourses/portraits/K27_TheOnryo_Portrait.webp' },
+            { name: 'The Dredge', image: 'resourses/portraits/K28_TheDredge_Portrait.webp' },
+            { name: 'The Mastermind', image: 'resourses/portraits/K29_TheMastermind_Portrait.webp' },
+            { name: 'The Knight', image: 'resourses/portraits/K30_TheKnight_Portrait.webp' },
+            { name: 'The Skull Merchant', image: 'resourses/portraits/K31_TheSkullMerchant_Portrait.webp' },
+            { name: 'The Singularity', image: 'resourses/portraits/K32_TheSingularity_Portrait.webp' },
+            { name: 'The Xenomorph', image: 'resourses/portraits/K33_TheXenomorph_Portrait.webp' },
+            { name: 'The Good Guy', image: 'resourses/portraits/K34_TheGoodGuy_Portrait.webp' },
+            { name: 'The Unknown', image: 'resourses/portraits/K35_TheUnknown_Portrait.webp' },
+            { name: 'The Lich', image: 'resourses/portraits/K36_TheLich_Portrait.webp' },
+            { name: 'The Dark Lord', image: 'resourses/portraits/K37_TheDarkLord_Portrait.webp' },
+            { name: 'The Houndmaster', image: 'resourses/portraits/K38_TheHoundmaster_Portrait.webp' }
+        ];
+
+        const killerList = document.getElementById('killer-list');
+        const svg = d3.select('#wheel');
+        const width = +svg.attr('width');
+        const height = +svg.attr('height');
+        const radius = Math.min(width, height) / 2;
+        let selectedKillersData = [];
+        let rotation = 0;
+
+        // Генерация карточек
+        killers.forEach(killer => {
+            const card = document.createElement('div');
+            card.className = 'killer-card';
+            card.onclick = () => toggleSelection(card);
+            card.innerHTML = `
+                <img src="${killer.image}" alt="${killer.name}">
+                <span>${killer.name}</span>
+            `;
+            killerList.appendChild(card);
+        });
+
+        function toggleSelection(card) {
+            card.classList.toggle('selected');
+        }
+
+        function selectAllKillers() {
+            document.querySelectorAll('.killer-card').forEach(card => card.classList.add('selected'));
+        }
+
+        function deselectAllKillers() {
+            document.querySelectorAll('.killer-card').forEach(card => card.classList.remove('selected'));
+        }
+
+        function spinWheel() {
+            const selectedKillers = Array.from(document.querySelectorAll('.killer-card.selected')).map(card => ({
+                name: card.querySelector('span').textContent,
+                image: card.querySelector('img').src
+            }));
+
+            if (selectedKillers.length === 0) {
+                alert('Пожалуйста, выберите хотя бы одного маньяка!');
+                return;
+            }
+
+            selectedKillersData = selectedKillers;
+
+            // Рендер колеса
+            svg.selectAll('*').remove();
+            const g = svg.append('g').attr('transform', `translate(${width / 2},${height / 2})`);
+            const arc = d3.arc().innerRadius(0).outerRadius(radius);
+            const pie = d3.pie().value(1).sort(null);
+
+            const tooltip = document.getElementById('segment-tooltip');
+
+            const arcs = g.selectAll('.arc')
+                .data(pie(selectedKillers))
+                .enter()
+                .append('g')
+                .attr('class', 'arc')
+                .on('mouseover', (event, d) => {
+                    tooltip.textContent = d.data.name; // Отображение имени сегмента
+                    tooltip.style.visibility = 'visible';
+                })
+                .on('mousemove', event => {
+                    tooltip.style.left = `${event.pageX}px`;
+                    tooltip.style.top = `${event.pageY - 40}px`;
+                })
+                .on('mouseout', () => {
+                    tooltip.style.visibility = 'hidden'; // Скрытие текста
+                });
+
+            arcs.append('path')
+                .attr('d', arc)
+                .attr('fill', (d, i) => d3.schemeCategory10[i % 10]);
+
+            // Добавляем текстовые метки
+            arcs.append('text')
+                .attr('transform', d => `translate(${arc.centroid(d)})`)
+                .attr('dy', '0.35em')
+                .style('text-anchor', 'middle')
+                .style('font-size', '12px')
+                .style('fill', '#fff')
+                .text(d => d.data.name);
+
+            rotation = 0;
+
+            const fullRotations = 5;
+            const randomAngle = Math.floor(Math.random() * 360);
+            const targetRotation = fullRotations * 360 + randomAngle;
+            const segmentAngle = 360 / selectedKillers.length;
+
+            g.transition()
+                .duration(4000)
+                .ease(d3.easeCubicOut)
+                .attrTween('transform', () => {
+                    const interpolate = d3.interpolate(0, targetRotation);
+                    return t => `translate(${width / 2},${height / 2}) rotate(${interpolate(t)})`;
+                })
+                .on('end', () => {
+                    const adjustedRotation = (360 - randomAngle % 360) % 360;
+                    const selectedIndex = Math.floor(adjustedRotation / segmentAngle) % selectedKillers.length;
+                    const winner = selectedKillers[selectedIndex];
+
+                    // Отображение победителя
+                    const winnerContainer = document.getElementById('winner-container');
+                    const winnerPortrait = document.getElementById('winner-portrait');
+                    const winnerName = document.getElementById('winner-name');
+
+                    winnerPortrait.src = winner.image;
+                    winnerName.textContent = `Вы должны сыграть за: ${winner.name}`;
+                    winnerContainer.style.display = 'flex';
+                });
+        }
+    </script>
+</body>
+
+</html>
